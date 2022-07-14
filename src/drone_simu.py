@@ -39,7 +39,7 @@ class DroneControlSim:
 
             # pos_sp = np.array([1,0,-1])self.trajectory_ref[self.pointer,0:3]
             # pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
-            pos_cmd = np.array([1,0,-1])
+            pos_cmd = np.array([1,-2,-1])
             vel_cmd = np.array([0,0,0])
             att_cmd,thrust_cmd = self.feedback_control(pos_cmd,vel_cmd)
 
@@ -149,7 +149,7 @@ class DroneControlSim:
         if cmd > ub:
             cmd = ub
         elif cmd < lb:
-            cmd = ub
+            cmd = lb
         return cmd
 
     def rate_controller(self,cmd):
