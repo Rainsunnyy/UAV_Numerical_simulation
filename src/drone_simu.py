@@ -4,10 +4,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import sin,cos,tan
 from scipy.spatial.transform import Rotation as R
+from tf.transformations import quaternion_from_euler,euler_from_quaternion
+
+def loaddata(path):
+    data = np.loadtxt(open(path,"rb"),delimiter=",",skiprows=2) 
+    q = np.column_stack((data[:,0],data[:,1],data[:,2],data[:,3],data[:,8],data[:,9],data[:,10],data[:,5],data[:,6],data[:,7],data[:,4],data[:,20],data[:,21],data[:,22],data[:,23],data[:,11],data[:,12],data[:,13]))
+    return q
+
+def time_search(time, t_list):
+    pointer = 0
+    while(pointer < len(t_list)-1):
+        if time < t_list[pointer]:
+            return pointer
+        else:
+            pointer += 1
+
+    return pointer
 
 class DroneControlSim:
     def __init__(self):
-        self.sim_time = 10 
+        self.sim_time = 3 
         self.sim_step = 0.002
         self.drone_states = np.zeros((int(self.sim_time/self.sim_step), 12))
         self.time= np.zeros((int(self.sim_time/self.sim_step),))
@@ -26,6 +42,15 @@ class DroneControlSim:
         self.g = 9.8
         self.I = np.array([[self.I_xx, .0,.0],[.0,self.I_yy,.0],[.0,.0,self.I_zz]])
 
+        self.k = 0
+        self.path = "/home/rainsuny/racing_ws/src/time_optimal_trajectory/example/result.csv"
+        self.plan_cmd = loaddata(self.path)
+
+        self.forward_thrust_cmd = 0
+        self.forward_bodyrate_cmd = np.array((3,))
+        self.forward_orien_cmd = np.array((4,))
+        self.forward_attitude_cmd = np.array((3,))
+
 
         self.position_des = [[0,0,0]]
         self.velocity_des = [[0,0,0]]
@@ -37,14 +62,29 @@ class DroneControlSim:
         for self.pointer in range(self.drone_states.shape[0]-1):
             self.time[self.pointer] = self.pointer * self.sim_step
 
-            pos_sp = np.array([1,1,-1])
-            pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
+            self.set_forwardcontrol(self.time[self.pointer])
+
+            # pos_sp = np.array([1,1,-1])
+            # pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
             # pos_cmd = np.array([1,-2,-1])
             # vel_cmd = np.array([0,0,0])
-            att_cmd,thrust_cmd = self.feedback_control(pos_cmd,vel_cmd)
+
+            pos_cmd = self.forward_position_cmd
+            vel_cmd = self.forward_velocity_cmd
+            att_feedfoward = self.forward_attitude_cmd
+            thrust_feedfoward = self.forward_thrust_cmd
+            rate_feedfoward = self.forward_bodyrate_cmd
+            # print(pos_cmd)
+            # print(vel_cmd)
+            # print(thrust_feedfoward)
+
+            att_feedback,thrust_feedback = self.feedback_control(pos_cmd,vel_cmd)
+            att_cmd = att_feedfoward + att_feedback
+            thrust_cmd = thrust_feedfoward + thrust_feedback
 
             # att_cmd = np.array([0,1,0])
-            rate_cmd = self.attitude_controller(att_cmd)
+            rate_feedback = self.attitude_controller(att_cmd)
+            rate_cmd = rate_feedfoward + rate_feedback
             M_cmd = self.rate_controller(rate_cmd)
 
             dx = self.drone_dynamics(thrust_cmd, M_cmd)
@@ -62,8 +102,8 @@ class DroneControlSim:
 
     def trajectory_generator(self,pos_sp):
         kp = 2
-        self.trajectory_ref[self.pointer,3:6]= kp * np.array(pos_sp-self.trajectory_ref[self.pointer,0:3])
-        self.trajectory_ref[self.pointer+1,0:3] = self.trajectory_ref[self.pointer,0:3]+self.sim_step*self.trajectory_ref[self.pointer,3:6]
+        self.trajectory_ref[self.pointer,3:6] = kp * np.array(pos_sp - self.trajectory_ref[self.pointer,0:3])
+        self.trajectory_ref[self.pointer+1,0:3] = self.trajectory_ref[self.pointer,0:3] + self.sim_step*self.trajectory_ref[self.pointer,3:6]
 
         return self.trajectory_ref[self.pointer,0:3],self.trajectory_ref[self.pointer,3:6]
 
@@ -106,10 +146,36 @@ class DroneControlSim:
 
         return dx 
 
+    def set_forwardcontrol(self,t):
+        self.k = time_search(t,self.plan_cmd[:,0])
+        # print(self.k)
+        if self.k < self.plan_cmd.shape[0] - 1:
+            self.forward_control(self.plan_cmd[self.k,:])
+            # self.planning = self.plan_att[self.k,1:6]
+        else:
+            self.forward_control(self.plan_cmd[self.plan_cmd.shape[0] - 2,:])
+        # self.position_des.append(self.forward_position_cmd)
+        # self.velocity_des.append(self.forward_velocity_cmd)
+        # self.attitude_des.append(self.forward_attitude_cmd)
+        # self.bodyrate_des.append(self.forward_bodyrate_cmd)
+        
+        # print(len(self.bodyrate_cmd))
+
+    def forward_control(self,data):
+        self.forward_position_cmd = np.array([data[1],data[2],5-data[3]])
+        self.forward_velocity_cmd = np.array([data[4],data[5],-data[6]])
+        self.forward_thrust_cmd = data[11] + data[12] + data[13] + data[14]
+        # print(self.forward_thrust_cmd)
+        self.forward_orien_cmd = np.array([data[7],data[8],data[9],data[10]])
+        # print(self.forward_orien_cmd)
+        self.forward_bodyrate_cmd = np.array([data[15],data[16],data[17]])
+        self.forward_attitude_cmd = np.array(euler_from_quaternion([self.forward_orien_cmd[0],self.forward_orien_cmd[1],self.forward_orien_cmd[2],self.forward_orien_cmd[3]]))
+        # print(self.forward_bodyrate_cmd)
+
 
     def feedback_control(self,pos_cmd,vel_cmd):
-        k_p = 1 
-        k_v = 3 
+        k_p = 1
+        k_v = 2
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
@@ -134,9 +200,11 @@ class DroneControlSim:
 
         R_E_B = R.from_matrix(np.transpose(np.array([x_b_des,y_b_des,z_b_des])))
         psi_cmd,theta_cmd,phi_cmd = R_E_B.as_euler('zyx')
+        # psi_cmd = 0
+        # print(psi_cmd)
 
-        self.cmd_bound(phi_cmd,30.0/180*3.14,-30.0/180*3.14)
-        self.cmd_bound(theta_cmd,30.0/180*3.14,-30.0/180*3.14)
+        self.cmd_bound(phi_cmd,70.0/180*3.14,-70.0/180*3.14)
+        self.cmd_bound(theta_cmd,70.0/180*3.14,-70.0/180*3.14)
 
         att_cmd = np.array([phi_cmd,theta_cmd,psi_cmd])
         
@@ -159,7 +227,7 @@ class DroneControlSim:
         return M_cmd
 
     def attitude_controller(self,cmd):
-        kp = [3, 3, 3]
+        kp = [2, 2, 2]
         rate_cmd = kp * (cmd - self.drone_states[self.pointer, 6:9])
         # self.drone_states[self.pointer, 6:9] = M 
         # Input: cmd np.array (3,) attitude commands
