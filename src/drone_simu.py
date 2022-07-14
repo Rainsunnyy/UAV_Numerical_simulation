@@ -37,10 +37,10 @@ class DroneControlSim:
         for self.pointer in range(self.drone_states.shape[0]-1):
             self.time[self.pointer] = self.pointer * self.sim_step
 
-            # pos_sp = np.array([1,0,-1])self.trajectory_ref[self.pointer,0:3]
-            # pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
-            pos_cmd = np.array([1,-2,-1])
-            vel_cmd = np.array([0,0,0])
+            pos_sp = np.array([1,1,-1])
+            pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
+            # pos_cmd = np.array([1,-2,-1])
+            # vel_cmd = np.array([0,0,0])
             att_cmd,thrust_cmd = self.feedback_control(pos_cmd,vel_cmd)
 
             # att_cmd = np.array([0,1,0])
@@ -62,8 +62,8 @@ class DroneControlSim:
 
     def trajectory_generator(self,pos_sp):
         kp = 2
-        self.trajectory_ref[self.pointer,3:6]= kp @ np.array(pos_sp-self.trajectory_ref[self.pointer,0:3])
-        self.trajectory_ref[self.pointer+1,0:3] = self.trajectory_ref[self.pointer]+self.sim_step*self.trajectory_ref[self.pointer,0:3]
+        self.trajectory_ref[self.pointer,3:6]= kp * np.array(pos_sp-self.trajectory_ref[self.pointer,0:3])
+        self.trajectory_ref[self.pointer+1,0:3] = self.trajectory_ref[self.pointer,0:3]+self.sim_step*self.trajectory_ref[self.pointer,3:6]
 
         return self.trajectory_ref[self.pointer,0:3],self.trajectory_ref[self.pointer,3:6]
 
@@ -108,8 +108,8 @@ class DroneControlSim:
 
 
     def feedback_control(self,pos_cmd,vel_cmd):
-        k_p = 0.8 
-        k_v = 2 
+        k_p = 1 
+        k_v = 3 
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
@@ -119,8 +119,8 @@ class DroneControlSim:
 
         psi = self.drone_states[self.pointer,8]
 
-        # acc_fb = K_pos @ (pos_cmd - current_pos) + K_vel @ (vel_cmd - current_vel)
-        acc_fb = K_vel @ (K_pos @ (pos_cmd - current_pos) - current_vel)
+        acc_fb = K_pos @ (pos_cmd - current_pos) + K_vel @ (vel_cmd - current_vel)
+        # acc_fb = K_vel @ (K_pos @ (pos_cmd - current_pos) - current_vel)
 
         # acc_fb = K_vel @ (vel_cmd - current_vel)
         acc_des = np.array( acc_fb - acc_g)
@@ -159,7 +159,7 @@ class DroneControlSim:
         return M_cmd
 
     def attitude_controller(self,cmd):
-        kp = [2.5, 2.5, 2.5]
+        kp = [3, 3, 3]
         rate_cmd = kp * (cmd - self.drone_states[self.pointer, 6:9])
         # self.drone_states[self.pointer, 6:9] = M 
         # Input: cmd np.array (3,) attitude commands
