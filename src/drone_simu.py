@@ -72,7 +72,7 @@ class DroneControlSim:
             pos_cmd = self.forward_position_cmd
             vel_cmd = self.forward_velocity_cmd
             att_feedfoward = self.forward_attitude_cmd
-            thrust_feedfoward = self.forward_thrust_cmd
+            thrust_feedfoward = -self.forward_thrust_cmd
             rate_feedfoward = self.forward_bodyrate_cmd
             # print(pos_cmd)
             # print(vel_cmd)
@@ -80,7 +80,7 @@ class DroneControlSim:
 
             att_feedback,thrust_feedback = self.feedback_control(pos_cmd,vel_cmd)
             att_cmd = att_feedfoward + att_feedback
-            thrust_cmd = thrust_feedfoward + thrust_feedback
+            thrust_cmd = thrust_feedfoward - thrust_feedback
 
             # att_cmd = np.array([0,1,0])
             rate_feedback = self.attitude_controller(att_cmd)
@@ -174,8 +174,8 @@ class DroneControlSim:
 
 
     def feedback_control(self,pos_cmd,vel_cmd):
-        k_p = 1
-        k_v = 2
+        k_p = 0.1
+        k_v = 0.2
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
@@ -186,17 +186,21 @@ class DroneControlSim:
         psi = self.drone_states[self.pointer,8]
 
         acc_fb = K_pos @ (pos_cmd - current_pos) + K_vel @ (vel_cmd - current_vel)
+        # print(acc_fb)
         # acc_fb = K_vel @ (K_pos @ (pos_cmd - current_pos) - current_vel)
 
         # acc_fb = K_vel @ (vel_cmd - current_vel)
-        acc_des = np.array( acc_fb - acc_g)
+        acc_des = -np.array( acc_fb + acc_g)
+        # z axis is downward, acc_des should be positive, acc_g is positive, acc_g is downward, so why acc_des = acc_fb - acc_g? may be acc_des = acc_fb + acc_g
+        print(acc_des)
 
 
-        z_b_des = np.array(-acc_des / np.linalg.norm(acc_des))
+        z_b_des = np.array(acc_des / np.linalg.norm(acc_des))
         y_c = np.array([-sin(psi),cos(psi),0])
         x_b_des = np.cross(y_c,z_b_des) / np.linalg.norm(np.cross(y_c,z_b_des))
         y_b_des = np.cross(z_b_des,x_b_des)
         T_des = np.dot(acc_des, z_b_des)
+        print(T_des)
 
         R_E_B = R.from_matrix(np.transpose(np.array([x_b_des,y_b_des,z_b_des])))
         psi_cmd,theta_cmd,phi_cmd = R_E_B.as_euler('zyx')
