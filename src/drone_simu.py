@@ -79,11 +79,14 @@ class DroneControlSim:
             # print(thrust_feedfoward)
 
             att_feedback,thrust_feedback = self.feedback_control(pos_cmd,vel_cmd)
+
             att_cmd = att_feedfoward + att_feedback
-            thrust_cmd = thrust_feedfoward - thrust_feedback
+            thrust_cmd = thrust_feedback              # thrust_feedback include acc_ff and acc_fb
+            rate_feedback = self.attitude_controller(att_feedback)
+
 
             # att_cmd = np.array([0,1,0])
-            rate_feedback = self.attitude_controller(att_cmd)
+            # rate_feedback = self.attitude_controller(att_cmd)
             rate_cmd = rate_feedfoward + rate_feedback
             M_cmd = self.rate_controller(rate_cmd)
 
@@ -162,6 +165,8 @@ class DroneControlSim:
         # print(len(self.bodyrate_cmd))
 
     def forward_control(self,data):
+        # exist a bug, get quadrotor state from feedfoward controller, ENU, need to multiply rotation matrix, need double check feedfoward frame?
+
         self.forward_position_cmd = np.array([data[1],data[2],5-data[3]])
         self.forward_velocity_cmd = np.array([data[4],data[5],-data[6]])
         self.forward_thrust_cmd = data[11] + data[12] + data[13] + data[14]
@@ -170,6 +175,8 @@ class DroneControlSim:
         # print(self.forward_orien_cmd)
         self.forward_bodyrate_cmd = np.array([data[15],data[16],data[17]])
         self.forward_attitude_cmd = np.array(euler_from_quaternion([self.forward_orien_cmd[0],self.forward_orien_cmd[1],self.forward_orien_cmd[2],self.forward_orien_cmd[3]]))
+
+
         # print(self.forward_bodyrate_cmd)
 
 
@@ -179,38 +186,56 @@ class DroneControlSim:
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
+        acc_T = np.array([0, 0, -self.forward_thrust_cmd])
+
+
+        phi = self.drone_states[self.pointer,6]
+        theta = self.drone_states[self.pointer,7]
+        psi = self.drone_states[self.pointer,8]
+        R_E_B = np.array([[cos(theta)*cos(psi),cos(theta)*sin(psi),-sin(theta)],\
+                          [sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi),sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi),sin(phi)*cos(theta)],\
+                          [cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi),cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi),cos(phi)*cos(theta)]])
+        
+        acc_ff = acc_g + R_E_B.transpose()@acc_T
 
         current_pos = self.drone_states[self.pointer,0:3]
         current_vel = self.drone_states[self.pointer,3:6]
 
-        psi = self.drone_states[self.pointer,8]
+        # psi = self.drone_states[self.pointer,8]
 
         acc_fb = K_pos @ (pos_cmd - current_pos) + K_vel @ (vel_cmd - current_vel)
         # print(acc_fb)
         # acc_fb = K_vel @ (K_pos @ (pos_cmd - current_pos) - current_vel)
 
-        # acc_fb = K_vel @ (vel_cmd - current_vel)
-        acc_des = -np.array( acc_fb + acc_g)
-        # z axis is downward, acc_des should be positive, acc_g is positive, acc_g is downward, so why acc_des = acc_fb - acc_g? may be acc_des = acc_fb + acc_g
-        print(acc_des)
+        acc_des = np.array( acc_fb )                    #  get the feedback acceleration
+        acc_des_T = np.array(acc_fb + acc_ff - acc_g)   #  get the acceleration including feedback and feedfoward
+        # print(acc_des)
 
-
-        z_b_des = np.array(acc_des / np.linalg.norm(acc_des))
+        # get the feedback attitude
+        z_b_des = np.array(-acc_des / np.linalg.norm(acc_des))
         y_c = np.array([-sin(psi),cos(psi),0])
         x_b_des = np.cross(y_c,z_b_des) / np.linalg.norm(np.cross(y_c,z_b_des))
         y_b_des = np.cross(z_b_des,x_b_des)
-        T_des = np.dot(acc_des, z_b_des)
-        print(T_des)
 
         R_E_B = R.from_matrix(np.transpose(np.array([x_b_des,y_b_des,z_b_des])))
         psi_cmd,theta_cmd,phi_cmd = R_E_B.as_euler('zyx')
-        # psi_cmd = 0
-        # print(psi_cmd)
 
         self.cmd_bound(phi_cmd,70.0/180*3.14,-70.0/180*3.14)
         self.cmd_bound(theta_cmd,70.0/180*3.14,-70.0/180*3.14)
-
         att_cmd = np.array([phi_cmd,theta_cmd,psi_cmd])
+        # T_des = np.dot(acc_des, z_b_des)
+        # print(T_des)
+
+        # get the thrust including feedback and feedfoward
+        z_b_des_T = np.array(-acc_des_T / np.linalg.norm(acc_des_T))
+        x_b_des_T = np.cross(y_c,z_b_des_T) / np.linalg.norm(np.cross(y_c,z_b_des_T))
+        y_b_des = np.cross(z_b_des_T,x_b_des_T)
+        T_des = np.dot(acc_des_T, z_b_des_T)
+
+        # psi_cmd = 0
+        # print(psi_cmd)
+
+
         
         return att_cmd, T_des
 
