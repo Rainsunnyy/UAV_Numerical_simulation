@@ -8,7 +8,7 @@ from dronecontrol_ff import DroneControl_feed_foward
 
 class DroneControlSim:
     def __init__(self):
-        self.sim_time = 10 
+        self.sim_time = 30
         self.sim_step = 0.002
         self.drone_states = np.zeros((int(self.sim_time/self.sim_step), 12))
         self.time= np.zeros((int(self.sim_time/self.sim_step),))
@@ -25,7 +25,7 @@ class DroneControlSim:
         self.I_yy = 2.32e-3
         self.I_zz = 2.32e-3
         self.m = 1
-        self.g = 9.8
+        self.g = 9.81
         self.I = np.array([[self.I_xx, .0,.0],[.0,self.I_yy,.0],[.0,.0,self.I_zz]])
 
 
@@ -184,9 +184,6 @@ class DroneControlSim:
         T_des = np.dot(acc_des, z_b_des)
 
         return T_des
-
-
-
 
 
 
