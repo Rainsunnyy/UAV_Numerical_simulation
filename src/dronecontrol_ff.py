@@ -37,18 +37,19 @@ class DroneControl_feed_foward:
         # print(self.k)
         if self.k < self.plan_cmd.shape[0] - 1:
             self.forward_control(self.plan_cmd[self.k,:])
-            return self.forward_position_cmd,self.forward_velocity_cmd,self.forward_thrust_cmd,self.forward_attitude_cmd,self.forward_bodyrate_cmd
+            is_done = True
+            return self.forward_position_cmd,self.forward_velocity_cmd,self.forward_thrust_cmd,self.forward_attitude_cmd,self.forward_bodyrate_cmd,is_done
             # self.planning = self.plan_att[self.k,1:6]
         else:
-            self.forward_control(self.plan_cmd[self.plan_cmd.shape[0] - 2,:])
-
-            return self.forward_position_cmd,self.forward_velocity_cmd,self.forward_thrust_cmd,self.forward_attitude_cmd,self.forward_bodyrate_cmd
+            self.forward_control(self.plan_cmd[self.plan_cmd.shape[0] - 1,:])
+            is_done = False
+            return self.forward_position_cmd,self.forward_velocity_cmd,self.forward_thrust_cmd,self.forward_attitude_cmd,self.forward_bodyrate_cmd,is_done
 
     def forward_control(self,data): 
         R_ENU2NED = R.from_euler('zyx', [0,0,180], degrees=True)
             
         self.forward_position_cmd = R_ENU2NED.as_matrix() @ np.array([data[1],data[2],data[3]])
-        print(self.forward_position_cmd)
+        # print(self.forward_position_cmd)
         self.forward_velocity_cmd = R_ENU2NED.as_matrix() @ np.array([data[4],data[5],data[6]])
         self.forward_thrust_cmd = data[11] + data[12] + data[13] + data[14]
         # print(self.forward_thrust_cmd)

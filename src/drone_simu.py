@@ -38,8 +38,7 @@ class DroneControlSim:
         for self.pointer in range(self.drone_states.shape[0]-1):
             self.time[self.pointer] = self.pointer * self.sim_step
 
-            pos_feedfoward,vel_feedfoward,thrust_feedfoward,att_feedfoward,rate_feedfoward = dronecontol_ff.set_forwardcontrol(self.time[self.pointer])
-            # print(pos_feedfoward)
+            pos_feedfoward,vel_feedfoward,thrust_feedfoward,att_feedfoward,rate_feedfoward,is_done = dronecontol_ff.set_forwardcontrol(self.time[self.pointer])
 
             # pos_sp = np.array([1,1,-1])
             # pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
@@ -47,10 +46,11 @@ class DroneControlSim:
             # vel_cmd = np.array([0,0,0])
             pos_cmd,vel_cmd = pos_feedfoward,vel_feedfoward
 
-            att_cmd,thrust_cmd = self.feedback_control(pos_cmd,vel_cmd)
+            att_cmd = att_feedfoward
+            # att_cmd,thrust_cmd = self.feedback_control(pos_cmd,vel_cmd)
 
             # att_cmd = np.array([0,1,0])
-            rate_cmd = self.attitude_controller(att_cmd)
+            rate_cmd = rate_feedfoward
 
             M_cmd = self.rate_controller(rate_cmd)
 
