@@ -51,7 +51,11 @@ class DroneControlSim:
 
             # att_cmd = np.array([0,1,0])
             rate_cmd = self.attitude_controller(att_cmd)
+
             M_cmd = self.rate_controller(rate_cmd)
+
+            M_cmd = self.rate_controller(rate_feedfoward)
+            thrust_cmd = thrust_feedfoward
 
             dx = self.drone_dynamics(thrust_cmd, M_cmd)
             self.drone_states[self.pointer + 1] = self.drone_states[self.pointer] + self.sim_step * dx
