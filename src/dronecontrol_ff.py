@@ -43,20 +43,24 @@ class DroneControl_feed_foward:
             self.forward_control(self.plan_cmd[self.plan_cmd.shape[0] - 2,:])
             return self.forward_position_cmd,self.forward_velocity_cmd,self.forward_thrust_cmd,self.forward_attitude_cmd,self.forward_bodyrate_cmd
 
-    def forward_control(self,data):                   
-        self.forward_position_cmd = np.array([data[1],data[2],data[3]-5])
-        self.forward_velocity_cmd = np.array([data[4],data[5],data[6]])
+    def forward_control(self,data): 
+        R_ENU2NED = np.array([[0,1,0],\
+                             [1,0,0],\
+                             [0,0,-1]])                  
+        self.forward_position_cmd = R_ENU2NED @ np.array([data[1],data[2],data[3]])
+        print(self.forward_position_cmd)
+        self.forward_velocity_cmd = R_ENU2NED @ np.array([data[4],data[5],data[6]])
         self.forward_thrust_cmd = data[11] + data[12] + data[13] + data[14]
         # print(self.forward_thrust_cmd)
         self.forward_orien_cmd = np.array([data[7],data[8],data[9],data[10]])
         # print(self.forward_orien_cmd)
-        self.forward_bodyrate_cmd = np.array([data[15],data[16],data[17]])
-        self.forward_attitude_cmd = np.array(euler_from_quaternion([self.forward_orien_cmd[0],self.forward_orien_cmd[1],self.forward_orien_cmd[2],self.forward_orien_cmd[3]]))
-        
+        self.forward_bodyrate_cmd = R_ENU2NED @ np.array([data[15],data[16],data[17]])
+        self.forward_attitude_cmd = R_ENU2NED @ np.array(euler_from_quaternion([self.forward_orien_cmd[0],self.forward_orien_cmd[1],self.forward_orien_cmd[2],self.forward_orien_cmd[3]]))
+        # print(self.forward_attitude_cmd)
         self.forward_thrust_cmd = -self.forward_thrust_cmd
         
 
 if __name__ == "__main__":
     dronecontol_ff = DroneControl_feed_foward()
     a = dronecontol_ff.set_forwardcontrol(0.5)
-    print(type(a))
+    # print(type(a))
