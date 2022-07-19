@@ -15,7 +15,8 @@ class DroneControlSim:
         self.rate_cmd = np.zeros((int(self.sim_time/self.sim_step), 3)) 
         self.attitude_cmd = np.zeros((int(self.sim_time/self.sim_step), 3)) 
         self.velocity_cmd = np.zeros((int(self.sim_time/self.sim_step), 3)) 
-        self.position_cmd = np.zeros((int(self.sim_time/self.sim_step), 3)) 
+        # self.position_cmd = np.zeros((int(self.sim_time/self.sim_step), 3)) 
+        self.position_cmd = np.zeros((int(self.sim_time/self.sim_step), 3))
         self.pointer = 0 
 
         self.trajectory_ref = np.zeros((int(self.sim_time/self.sim_step), 6)) 
