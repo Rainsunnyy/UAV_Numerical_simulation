@@ -41,6 +41,7 @@ class DroneControl_feed_foward:
             # self.planning = self.plan_att[self.k,1:6]
         else:
             self.forward_control(self.plan_cmd[self.plan_cmd.shape[0] - 2,:])
+
             return self.forward_position_cmd,self.forward_velocity_cmd,self.forward_thrust_cmd,self.forward_attitude_cmd,self.forward_bodyrate_cmd
 
     def forward_control(self,data): 
