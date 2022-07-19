@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from math import sin,cos,tan
 from scipy.spatial.transform import Rotation as R
+from dronecontrol_ff import DroneControl_feed_foward
 
 class DroneControlSim:
     def __init__(self):
@@ -37,10 +38,15 @@ class DroneControlSim:
         for self.pointer in range(self.drone_states.shape[0]-1):
             self.time[self.pointer] = self.pointer * self.sim_step
 
-            pos_sp = np.array([1,1,-1])
-            pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
+            pos_feedfoward,vel_feedfoward,thrust_feedfoward,att_feedfoward,rate_feedfoward = dronecontol_ff.set_forwardcontrol(self.time[self.pointer])
+            # print(pos_feedfoward)
+
+            # pos_sp = np.array([1,1,-1])
+            # pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
             # pos_cmd = np.array([1,-2,-1])
             # vel_cmd = np.array([0,0,0])
+            pos_cmd,vel_cmd = pos_feedfoward,vel_feedfoward
+
             att_cmd,thrust_cmd = self.feedback_control(pos_cmd,vel_cmd)
 
             # att_cmd = np.array([0,1,0])
@@ -141,6 +147,40 @@ class DroneControlSim:
         att_cmd = np.array([phi_cmd,theta_cmd,psi_cmd])
         
         return att_cmd, T_des
+
+    def thrust_control(self,pos_cmd,vel_cmd):
+        k_p = 1
+        k_v = 3
+        K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
+        K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
+        acc_g = np.array([0, 0, self.g])
+        acc_T = np.array([0, 0, self.forward_thrust_cmd])
+        # print(acc_T)
+
+        current_pos = self.drone_states[self.pointer,0:3]
+        current_vel = self.drone_states[self.pointer,3:6]
+
+        phi = self.drone_states[self.pointer,6]
+        theta = self.drone_states[self.pointer,7]
+        psi = self.drone_states[self.pointer,8]
+
+        R_E_B = np.array([[cos(theta)*cos(psi),cos(theta)*sin(psi),-sin(theta)],\
+                          [sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi),sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi),sin(phi)*cos(theta)],\
+                          [cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi),cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi),cos(phi)*cos(theta)]])
+
+        acc_fb = K_pos @ (pos_cmd - current_pos) + K_vel @ (vel_cmd - current_vel)
+        acc_ff = acc_g + R_E_B.transpose()@acc_T
+        acc_des = np.array(acc_ff + acc_fb - acc_g)
+
+        z_b_des = np.array(-acc_des / np.linalg.norm(acc_des))
+        y_c = np.array([-sin(psi),cos(psi),0])
+        x_b_des = np.cross(y_c,z_b_des) / np.linalg.norm(np.cross(y_c,z_b_des))
+        y_b_des = np.cross(z_b_des,x_b_des)
+        T_des = np.dot(acc_des, z_b_des)
+
+        return T_des
+
+
 
 
 
@@ -247,6 +287,7 @@ class DroneControlSim:
 
 if __name__ == "__main__":
     drone = DroneControlSim()
+    dronecontol_ff = DroneControl_feed_foward()
     drone.run()
     drone.plot_states()
     plt.show()
