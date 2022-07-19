@@ -24,6 +24,7 @@ class DroneControl_feed_foward:
     def __init__(self):
         self.k = 0
         self.path = "/home/rainsuny/racing_ws/src/time_optimal_trajectory/example/result.csv"
+        self.path = "/home/shuo/PythonProjects/UAV_Numerical_simulation/result.csv"
 
         self.forward_thrust_cmd = 0
         self.forward_bodyrate_cmd = np.array((3,))
