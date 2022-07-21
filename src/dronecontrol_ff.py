@@ -24,7 +24,8 @@ class DroneControl_feed_foward:
     def __init__(self):
         self.k = 0
         self.path = "/home/rainsuny/UAV/UAV_Numerical_simulation/dataset/xyz_planning.csv"
-        # self.path = "/home/shuo/PythonProjects/UAV_Numerical_simulation/result.csv"
+        self.path = "/home/shuo/PythonProjects/UAV_Numerical_simulation/result.csv"
+        self.path = "/home/parallels/PythonProjects/UAV_Numerical_simulation/dataset/x_z_planning.csv"
         self.plan_cmd = self.loaddata(self.path)
         self.pointer = 0
 

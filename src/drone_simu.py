@@ -8,7 +8,7 @@ from dronecontrol_ff import DroneControl_feed_foward
 
 class DroneControlSim:
     def __init__(self):
-        self.sim_time = 30
+        self.sim_time = 5 
         self.sim_step = 0.002
         self.drone_states = np.zeros((int(self.sim_time/self.sim_step), 12))
         self.time= np.zeros((int(self.sim_time/self.sim_step),))
@@ -19,6 +19,10 @@ class DroneControlSim:
         self.position_cmd = np.zeros((int(self.sim_time/self.sim_step), 3))
         self.pointer = 0 
 
+
+
+        self.acc_ref_int_debug = np.zeros((int(self.sim_time/self.sim_step), 3)) 
+
         self.trajectory_ref = np.zeros((int(self.sim_time/self.sim_step), 6)) 
 
         self.I_xx = 2.32e-3
@@ -27,6 +31,8 @@ class DroneControlSim:
         self.m = 1
         self.g = 9.81
         self.I = np.array([[self.I_xx, .0,.0],[.0,self.I_yy,.0],[.0,.0,self.I_zz]])
+
+        self.drone_states[0,0:3] = [0,0,-5]
 
 
         self.position_des = [[0,0,0]]
@@ -39,31 +45,30 @@ class DroneControlSim:
         for self.pointer in range(self.drone_states.shape[0]-1):
             self.time[self.pointer] = self.pointer * self.sim_step
 
-            pos_feedfoward,vel_feedfoward,thrust_feedfoward,att_feedfoward,rate_feedfoward,is_done = dronecontol_ff.set_forwardcontrol(self.time[self.pointer])
+            t = self.time[self.pointer]
+            pos_ff,vel_ff,thrust_ff,att_ff,rate_ff,is_done = dronecontol_ff.set_forwardcontrol(t)
 
-            # pos_sp = np.array([1,1,-1])
-            # pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
-            # pos_cmd = np.array([1,-2,-1])
-            # vel_cmd = np.array([0,0,0])
-            pos_cmd,vel_cmd = pos_feedfoward,vel_feedfoward
+            att_cmd,thrust_cmd = self.feedback_control(pos_ff,vel_ff,att_ff,thrust_ff)
 
-            att_cmd = att_feedfoward
-            # att_cmd,thrust_cmd = self.feedback_control(pos_cmd,vel_cmd)
+            rate_fb = self.attitude_controller(att_cmd)
 
-            # att_cmd = np.array([0,1,0])
-            rate_cmd = rate_feedfoward
+            # rate_fb = np.zeros((3,))
+            # thrust_cmd = thrust_ff
+
+
+            rate_ff = np.zeros((3,))
+            rate_cmd = rate_ff + rate_fb
 
             M_cmd = self.rate_controller(rate_cmd)
 
-            M_cmd = self.rate_controller(rate_feedfoward)
-            thrust_cmd = thrust_feedfoward
+            # M_cmd = self.rate_controller(rate_ff)
 
             dx = self.drone_dynamics(thrust_cmd, M_cmd)
             self.drone_states[self.pointer + 1] = self.drone_states[self.pointer] + self.sim_step * dx
 
-            self.position_des.append(pos_cmd)
-            self.velocity_des.append(vel_cmd)
-            self.attitude_des.append(att_cmd)
+            self.position_des.append(pos_ff)
+            self.velocity_des.append(vel_ff)
+            self.attitude_des.append(att_ff)
             self.bodyrate_des.append(rate_cmd)
 
 
@@ -71,14 +76,6 @@ class DroneControlSim:
             
         self.time[-1] = self.sim_time
 
-    def trajectory_generator(self,pos_sp):
-        kp = 2
-        self.trajectory_ref[self.pointer,3:6]= kp * np.array(pos_sp-self.trajectory_ref[self.pointer,0:3])
-        self.trajectory_ref[self.pointer+1,0:3] = self.trajectory_ref[self.pointer,0:3]+self.sim_step*self.trajectory_ref[self.pointer,3:6]
-
-        return self.trajectory_ref[self.pointer,0:3],self.trajectory_ref[self.pointer,3:6]
-
-        
 
     def drone_dynamics(self,T,M):
         # Input:
@@ -117,10 +114,16 @@ class DroneControlSim:
 
         return dx 
 
+    def pos_vel_acc_model(self,acc):
+        d_position = self.acc_ref_int_debug[self.pointer,3:6]
+        d_velocity = acc
+        dx = np.concatenate((d_position,d_velocity))
+        return dx
 
-    def feedback_control(self,pos_cmd,vel_cmd):
-        k_p = 1 
-        k_v = 3 
+
+    def feedback_control(self,pos_ff,vel_ff,att_ff,thrust_ff):
+        k_p = 0.0
+        k_v = 0.0
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
@@ -128,14 +131,28 @@ class DroneControlSim:
         current_pos = self.drone_states[self.pointer,0:3]
         current_vel = self.drone_states[self.pointer,3:6]
 
-        psi = self.drone_states[self.pointer,8]
+        # psi = self.drone_states[self.pointer,8]
+        psi = att_ff[2]
 
-        acc_fb = K_pos @ (pos_cmd - current_pos) + K_vel @ (vel_cmd - current_vel)
-        # acc_fb = K_vel @ (K_pos @ (pos_cmd - current_pos) - current_vel)
+        acc_fb = K_pos @ (pos_ff - current_pos) + K_vel @ (vel_ff - current_vel)
 
-        # acc_fb = K_vel @ (vel_cmd - current_vel)
-        acc_des = np.array( acc_fb - acc_g)
+        # R_E_B = R.from_euler('zyx',[att_ff[2],att_ff[1],att_ff[0]])
+        # R_B_E = R_E_B.inv() 
 
+        phi = att_ff[0]
+        theta = att_ff[1]
+        psi = att_ff[2]
+
+        R_E_B = np.array([[cos(theta)*cos(psi),cos(theta)*sin(psi),-sin(theta)],\
+                          [sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi),sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi),sin(phi)*cos(theta)],\
+                          [cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi),cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi),cos(phi)*cos(theta)]])
+        acc_ref = acc_g + R_E_B.transpose() @ np.array([0.0,0.0,thrust_ff])
+
+
+        dx = self.pos_vel_acc_model(acc_ref)
+        self.acc_ref_int_debug[self.pointer+1] = self.acc_ref_int_debug[self.pointer]+self.sim_step*dx
+
+        acc_des = acc_fb + acc_ref - acc_g
 
         z_b_des = np.array(-acc_des / np.linalg.norm(acc_des))
         y_c = np.array([-sin(psi),cos(psi),0])
@@ -146,45 +163,12 @@ class DroneControlSim:
         R_E_B = R.from_matrix(np.transpose(np.array([x_b_des,y_b_des,z_b_des])))
         psi_cmd,theta_cmd,phi_cmd = R_E_B.as_euler('zyx')
 
-        self.cmd_bound(phi_cmd,30.0/180*3.14,-30.0/180*3.14)
-        self.cmd_bound(theta_cmd,30.0/180*3.14,-30.0/180*3.14)
+        self.cmd_bound(phi_cmd,60.0/180*3.14,-60.0/180*3.14)
+        self.cmd_bound(theta_cmd,60.0/180*3.14,-60.0/180*3.14)
 
         att_cmd = np.array([phi_cmd,theta_cmd,psi_cmd])
         
         return att_cmd, T_des
-
-    def thrust_control(self,pos_cmd,vel_cmd):
-        k_p = 1
-        k_v = 3
-        K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
-        K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
-        acc_g = np.array([0, 0, self.g])
-        acc_T = np.array([0, 0, self.forward_thrust_cmd])
-        # print(acc_T)
-
-        current_pos = self.drone_states[self.pointer,0:3]
-        current_vel = self.drone_states[self.pointer,3:6]
-
-        phi = self.drone_states[self.pointer,6]
-        theta = self.drone_states[self.pointer,7]
-        psi = self.drone_states[self.pointer,8]
-
-        R_E_B = np.array([[cos(theta)*cos(psi),cos(theta)*sin(psi),-sin(theta)],\
-                          [sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi),sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi),sin(phi)*cos(theta)],\
-                          [cos(phi)*sin(theta)*cos(psi)+sin(phi)*sin(psi),cos(phi)*sin(theta)*sin(psi)-sin(phi)*cos(psi),cos(phi)*cos(theta)]])
-
-        acc_fb = K_pos @ (pos_cmd - current_pos) + K_vel @ (vel_cmd - current_vel)
-        acc_ff = acc_g + R_E_B.transpose()@acc_T
-        acc_des = np.array(acc_ff + acc_fb - acc_g)
-
-        z_b_des = np.array(-acc_des / np.linalg.norm(acc_des))
-        y_c = np.array([-sin(psi),cos(psi),0])
-        x_b_des = np.cross(y_c,z_b_des) / np.linalg.norm(np.cross(y_c,z_b_des))
-        y_b_des = np.cross(z_b_des,x_b_des)
-        T_des = np.dot(acc_des, z_b_des)
-
-        return T_des
-
 
 
     def cmd_bound(self,cmd,ub,lb):
@@ -201,7 +185,7 @@ class DroneControlSim:
         return M_cmd
 
     def attitude_controller(self,cmd):
-        kp = [3, 3, 3]
+        kp = [10, 10, 10]
         rate_cmd = kp * (cmd - self.drone_states[self.pointer, 6:9])
         # self.drone_states[self.pointer, 6:9] = M 
         # Input: cmd np.array (3,) attitude commands
@@ -234,12 +218,15 @@ class DroneControlSim:
         self.position_cmd[-1] = self.position_cmd[-2]
         ax1[0,0].plot(self.time,self.drone_states[:,0],label='real')
         ax1[0,0].plot(self.time,np.array(self.position_des)[:,0],label='cmd')
+        ax1[0,0].plot(self.time,np.array(self.acc_ref_int_debug)[:,0],label='int')
         ax1[0,0].set_ylabel('x[m]')
         ax1[0,1].plot(self.time,self.drone_states[:,1])
         ax1[0,1].plot(self.time,np.array(self.position_des)[:,1])
+        ax1[0,1].plot(self.time,np.array(self.acc_ref_int_debug)[:,1])
         ax1[0,1].set_ylabel('y[m]')
         ax1[0,2].plot(self.time,self.drone_states[:,2])
         ax1[0,2].plot(self.time,np.array(self.position_des)[:,2])
+        ax1[0,2].plot(self.time,np.array(self.acc_ref_int_debug)[:,2])
         ax1[0,2].set_ylabel('z[m]')
         ax1[0,0].legend()
 
