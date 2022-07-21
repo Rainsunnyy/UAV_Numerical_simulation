@@ -2,14 +2,14 @@ import sys
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from math import sin,cos,tan,atan,asin,acos
+from math import sin,cos,tan,atan,asin,acos,atan2
 from scipy.spatial.transform import Rotation as R
 from dronecontrol_ff import DroneControl_feed_foward
 
 
 class DroneControlSim:
     def __init__(self):
-        self.sim_time = 6 
+        self.sim_time = 5.5 
         self.sim_step = 0.002
         self.drone_states = np.zeros((int(self.sim_time/self.sim_step), 12))
         self.time= np.zeros((int(self.sim_time/self.sim_step),))
@@ -131,7 +131,7 @@ class DroneControlSim:
 
     def feedback_control(self,pos_ff,vel_ff,att_ff,thrust_ff):
         k_p = 5 
-        k_v = 1 
+        k_v = 3 
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
@@ -173,15 +173,16 @@ class DroneControlSim:
         # R_E_B = R.from_matrix(np.transpose(np.array([x_b_des,y_b_des,z_b_des])))
         # psi_cmd,theta_cmd,phi_cmd = R_E_B.as_euler('zyx')
         R_E_B = np.transpose(np.array([x_b_des,y_b_des,z_b_des]))
-        psi_cmd = atan(R_E_B[1,0]/R_E_B[0,0])
+        # psi_cmd = atan(R_E_B[1,0]/R_E_B[0,0])
+        psi_cmd = atan2(R_E_B[1,0],R_E_B[0,0])
         theta_cmd = asin(-R_E_B[2,0])
         phi_cmd = atan(R_E_B[2,1]/R_E_B[2,2])
 
         if self.pointer < 20:
             print(phi_cmd)
 
-        phi_cmd = self.cmd_bound(phi_cmd,60.0/180*3.14,-60.0/180*3.14)
-        theta_cmd = self.cmd_bound(theta_cmd,60.0/180*3.14,-60.0/180*3.14)
+        phi_cmd = self.cmd_bound(phi_cmd,80.0/180*3.14,-80.0/180*3.14)
+        theta_cmd = self.cmd_bound(theta_cmd,80.0/180*3.14,-80.0/180*3.14)
 
         att_cmd = np.array([phi_cmd,theta_cmd,psi_cmd])
         
