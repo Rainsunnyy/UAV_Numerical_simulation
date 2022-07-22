@@ -21,7 +21,7 @@ class DroneControlSim:
 
 
 
-        self.acc_ref_int_debug = np.zeros((int(self.sim_time/self.sim_step), 3)) 
+        self.acc_ref_int_debug = np.zeros((int(self.sim_time/self.sim_step), 6)) 
 
         self.trajectory_ref = np.zeros((int(self.sim_time/self.sim_step), 6)) 
 
@@ -233,12 +233,15 @@ class DroneControlSim:
         self.velocity_cmd[-1] = self.velocity_cmd[-2]
         ax1[1,0].plot(self.time,self.drone_states[:,3])
         ax1[1,0].plot(self.time,np.array(self.velocity_des)[:,0])
+        ax1[1,0].plot(self.time,np.array(self.acc_ref_int_debug)[:,3],label='int')
         ax1[1,0].set_ylabel('vx[m/s]')
         ax1[1,1].plot(self.time,self.drone_states[:,4])
         ax1[1,1].plot(self.time,np.array(self.velocity_des)[:,1])
+        ax1[1,1].plot(self.time,np.array(self.acc_ref_int_debug)[:,4])
         ax1[1,1].set_ylabel('vy[m/s]')
         ax1[1,2].plot(self.time,self.drone_states[:,5])
         ax1[1,2].plot(self.time,np.array(self.velocity_des)[:,2])
+        ax1[1,2].plot(self.time,np.array(self.acc_ref_int_debug)[:,5])
         ax1[1,2].set_ylabel('vz[m/s]')
 
         self.attitude_cmd[-1] = self.attitude_cmd[-2]
