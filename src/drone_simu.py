@@ -56,7 +56,7 @@ class DroneControlSim:
             # thrust_cmd = thrust_ff
 
 
-            rate_ff = np.zeros((3,))
+            # rate_ff = np.zeros((3,))
             rate_cmd = rate_ff + rate_fb
 
             M_cmd = self.rate_controller(rate_cmd)
@@ -122,8 +122,8 @@ class DroneControlSim:
 
 
     def feedback_control(self,pos_ff,vel_ff,att_ff,thrust_ff):
-        k_p = 0.0
-        k_v = 0.0
+        k_p = 1 
+        k_v = 0.1
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
@@ -131,8 +131,8 @@ class DroneControlSim:
         current_pos = self.drone_states[self.pointer,0:3]
         current_vel = self.drone_states[self.pointer,3:6]
 
-        # psi = self.drone_states[self.pointer,8]
-        psi = att_ff[2]
+        psi = self.drone_states[self.pointer,8]
+        # psi = att_ff[2]
 
         acc_fb = K_pos @ (pos_ff - current_pos) + K_vel @ (vel_ff - current_vel)
 
@@ -218,30 +218,30 @@ class DroneControlSim:
         self.position_cmd[-1] = self.position_cmd[-2]
         ax1[0,0].plot(self.time,self.drone_states[:,0],label='real')
         ax1[0,0].plot(self.time,np.array(self.position_des)[:,0],label='cmd')
-        ax1[0,0].plot(self.time,np.array(self.acc_ref_int_debug)[:,0],label='int')
+        # ax1[0,0].plot(self.time,np.array(self.acc_ref_int_debug)[:,0],label='int')
         ax1[0,0].set_ylabel('x[m]')
         ax1[0,1].plot(self.time,self.drone_states[:,1])
         ax1[0,1].plot(self.time,np.array(self.position_des)[:,1])
-        ax1[0,1].plot(self.time,np.array(self.acc_ref_int_debug)[:,1])
+        #ax1[0,1].plot(self.time,np.array(self.acc_ref_int_debug)[:,1])
         ax1[0,1].set_ylabel('y[m]')
         ax1[0,2].plot(self.time,self.drone_states[:,2])
         ax1[0,2].plot(self.time,np.array(self.position_des)[:,2])
-        ax1[0,2].plot(self.time,np.array(self.acc_ref_int_debug)[:,2])
+        # ax1[0,2].plot(self.time,np.array(self.acc_ref_int_debug)[:,2])
         ax1[0,2].set_ylabel('z[m]')
         ax1[0,0].legend()
 
         self.velocity_cmd[-1] = self.velocity_cmd[-2]
         ax1[1,0].plot(self.time,self.drone_states[:,3])
         ax1[1,0].plot(self.time,np.array(self.velocity_des)[:,0])
-        ax1[1,0].plot(self.time,np.array(self.acc_ref_int_debug)[:,3],label='int')
+        # ax1[1,0].plot(self.time,np.array(self.acc_ref_int_debug)[:,3],label='int')
         ax1[1,0].set_ylabel('vx[m/s]')
         ax1[1,1].plot(self.time,self.drone_states[:,4])
         ax1[1,1].plot(self.time,np.array(self.velocity_des)[:,1])
-        ax1[1,1].plot(self.time,np.array(self.acc_ref_int_debug)[:,4])
+        # ax1[1,1].plot(self.time,np.array(self.acc_ref_int_debug)[:,4])
         ax1[1,1].set_ylabel('vy[m/s]')
         ax1[1,2].plot(self.time,self.drone_states[:,5])
         ax1[1,2].plot(self.time,np.array(self.velocity_des)[:,2])
-        ax1[1,2].plot(self.time,np.array(self.acc_ref_int_debug)[:,5])
+        # ax1[1,2].plot(self.time,np.array(self.acc_ref_int_debug)[:,5])
         ax1[1,2].set_ylabel('vz[m/s]')
 
         self.attitude_cmd[-1] = self.attitude_cmd[-2]
