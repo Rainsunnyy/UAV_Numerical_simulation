@@ -9,7 +9,7 @@ from dronecontrol_ff import DroneControl_feed_foward
 
 class DroneControlSim:
     def __init__(self):
-        self.sim_time = 2 
+        self.sim_time = 6 
         self.sim_step = 0.002
         self.drone_states = np.zeros((int(self.sim_time/self.sim_step), 12))
         self.time= np.zeros((int(self.sim_time/self.sim_step),))
@@ -19,6 +19,7 @@ class DroneControlSim:
         # self.position_cmd = np.zeros((int(self.sim_time/self.sim_step), 3)) 
         self.position_cmd = np.zeros((int(self.sim_time/self.sim_step), 3))
         self.pointer = 0 
+        self.drone_states[0,0:3]= np.array([0,0,-0.6]) 
 
 
 
@@ -33,7 +34,7 @@ class DroneControlSim:
         self.g = 9.81
         self.I = np.array([[self.I_xx, .0,.0],[.0,self.I_yy,.0],[.0,.0,self.I_zz]])
 
-        self.drone_states[0,0:3] = [0,0,-5]
+        # self.drone_states[0,0:3] = [0,0,-5]
 
 
         self.position_des = [[0,0,0]]
@@ -129,8 +130,8 @@ class DroneControlSim:
 
 
     def feedback_control(self,pos_ff,vel_ff,att_ff,thrust_ff):
-        k_p = 7 
-        k_v = 3 
+        k_p = 5 
+        k_v = 1 
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
@@ -138,8 +139,8 @@ class DroneControlSim:
         current_pos = self.drone_states[self.pointer,0:3]
         current_vel = self.drone_states[self.pointer,3:6]
 
-        psi = self.drone_states[self.pointer,8]
-        # psi = att_ff[2]
+        # psi = self.drone_states[self.pointer,8]
+        psi = att_ff[2]
 
         acc_fb = K_pos @ (pos_ff - current_pos) + K_vel @ (vel_ff - current_vel)
 
@@ -151,7 +152,6 @@ class DroneControlSim:
         phi = att_ff[0]
         theta = att_ff[1]
         psi = att_ff[2]
-        psi = 0
 
         R_E_B = np.array([[cos(theta)*cos(psi),cos(theta)*sin(psi),-sin(theta)],\
                           [sin(phi)*sin(theta)*cos(psi)-cos(phi)*sin(psi),sin(phi)*sin(theta)*sin(psi)+cos(phi)*cos(psi),sin(phi)*cos(theta)],\
