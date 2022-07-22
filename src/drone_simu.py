@@ -8,7 +8,7 @@ from dronecontrol_ff import DroneControl_feed_foward
 
 class DroneControlSim:
     def __init__(self):
-        self.sim_time = 30
+        self.sim_time = 12
         self.sim_step = 0.002
         self.drone_states = np.zeros((int(self.sim_time/self.sim_step), 12))
         self.time= np.zeros((int(self.sim_time/self.sim_step),))
@@ -25,7 +25,7 @@ class DroneControlSim:
         self.I_yy = 2.32e-3
         self.I_zz = 2.32e-3
         self.m = 1
-        self.g = 9.81
+        self.g = 9.801
         self.I = np.array([[self.I_xx, .0,.0],[.0,self.I_yy,.0],[.0,.0,self.I_zz]])
 
 
@@ -40,23 +40,41 @@ class DroneControlSim:
             self.time[self.pointer] = self.pointer * self.sim_step
 
             pos_feedfoward,vel_feedfoward,thrust_feedfoward,att_feedfoward,rate_feedfoward,is_done = dronecontol_ff.set_forwardcontrol(self.time[self.pointer])
+            self.forward_thrust_cmd = thrust_feedfoward
 
             # pos_sp = np.array([1,1,-1])
             # pos_cmd,vel_cmd = self.trajectory_generator(pos_sp) 
             # pos_cmd = np.array([1,-2,-1])
             # vel_cmd = np.array([0,0,0])
-            pos_cmd,vel_cmd = pos_feedfoward,vel_feedfoward
-
-            att_cmd = att_feedfoward
+            
             # att_cmd,thrust_cmd = self.feedback_control(pos_cmd,vel_cmd)
 
-            # att_cmd = np.array([0,1,0])
-            rate_cmd = rate_feedfoward
+            # pos_cmd,vel_cmd = pos_feedfoward,vel_feedfoward
+            # att_feedback,thrust_feedback = self.feedback_control(pos_cmd,vel_cmd)  
+            # att_cmd = att_feedfoward + att_feedback
+            # rate_feedback = self.attitude_controller(att_feedback)
+            # rate_cmd = rate_feedback + rate_feedfoward
+            # M_cmd = self.rate_controller(rate_cmd)
+            # thrust_feedback = self.thrust_control(pos_cmd,vel_cmd)
+            # thrust_cmd = thrust_feedfoward + thrust_feedback
 
+            # feed_foward contorl by attitude
+            pos_cmd,vel_cmd = pos_feedfoward,vel_feedfoward
+            att_cmd = att_feedfoward
+            rate_cmd = self.attitude_controller(att_feedfoward) 
             M_cmd = self.rate_controller(rate_cmd)
-
-            M_cmd = self.rate_controller(rate_feedfoward)
             thrust_cmd = thrust_feedfoward
+
+
+            # feed_foward contorl by bodyrate
+            # pos_cmd,vel_cmd = pos_feedfoward,vel_feedfoward
+            # att_cmd = att_feedfoward
+            # rate_cmd = rate_feedfoward   
+            # M_cmd = self.rate_controller(rate_cmd)
+            # thrust_cmd = thrust_feedfoward
+
+            # M_cmd = self.rate_controller(rate_feedfoward)
+            # thrust_cmd = thrust_feedfoward
 
             dx = self.drone_dynamics(thrust_cmd, M_cmd)
             self.drone_states[self.pointer + 1] = self.drone_states[self.pointer] + self.sim_step * dx
@@ -154,8 +172,8 @@ class DroneControlSim:
         return att_cmd, T_des
 
     def thrust_control(self,pos_cmd,vel_cmd):
-        k_p = 1
-        k_v = 3
+        k_p = 0.3
+        k_v = 0.3
         K_pos = np.array([[k_p,0,0],[0,k_p,0],[0,0,k_p]])
         K_vel = np.array([[k_v,0,0],[0,k_v,0],[0,0,k_v]])
         acc_g = np.array([0, 0, self.g])
